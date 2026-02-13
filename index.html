@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0f0f17">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.svg">
+<link rel="apple-touch-icon" href="icons/icon-192.svg">
+<title>リスニング特訓</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+/* ============================================
+   CSS Variables & Reset
+   ============================================ */
+:root {
+  --bg: #0f0f17;
+  --surface: #1a1a2e;
+  --card: #232340;
+  --card-hover: #2a2a4a;
+  --border: #2e2e4a;
+  --primary: #f59e0b;
+  --primary-dim: #b47208;
+  --primary-glow: rgba(245, 158, 11, 0.15);
+  --danger: #ef4444;
+  --success: #22c55e;
+  --hard: #f97316;
+  --text: #e8e8f0;
+  --text-secondary: #8888a0;
+  --text-dim: #55556a;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --nav-height: 64px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+/* ============================================
+   App Shell
+   ============================================ */
+#app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.screen {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 20px;
+  padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 24px);
+  -webkit-overflow-scrolling: touch;
+}
+.screen.active { display: flex; flex-direction: column; }
+
+/* ============================================
+   Bottom Navigation
+   ============================================ */
+#nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--nav-height) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  z-index: 100;
+}
+
+.nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: none;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  transition: color 0.2s;
+}
+.nav-btn.active { color: var(--primary); }
+.nav-btn svg { width: 24px; height: 24px; }
+
+/* ============================================
+   Common Components
+   ============================================ */
+.page-title {
+  font-family: 'Space Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 20px;
+  color: var(--text);
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 24px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 16px;
+  transition: all 0.15s;
+  min-height: 56px;
+}
+.btn:active { transform: scale(0.97); }
+
+.btn-primary {
+  background: var(--primary);
+  color: #0f0f17;
+}
+.btn-primary:active { background: var(--primary-dim); }
+
+.btn-surface {
+  background: var(--card);
+  color: var(--text);
+}
+.btn-surface:active { background: var(--card-hover); }
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+.btn-block { width: 100%; }
+
+.btn-sm {
+  min-height: 44px;
+  padding: 10px 16px;
+  font-size: 14px;
+}
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.tag {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  transition: all 0.15s;
+}
+.tag.active {
+  background: var(--primary-glow);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-secondary);
+}
+.empty-state svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.4; }
+.empty-state p { font-size: 14px; }
+
+/* ============================================
+   Home Screen
+   ============================================ */
+.home-hero {
+  background: linear-gradient(135deg, var(--card) 0%, var(--surface) 100%);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.home-hero::after {
+  content: '';
+  position: absolute;
+  top: -30%;
+  right: -20%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-count {
+  font-family: 'Space Mono', monospace;
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1;
+}
+.hero-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.stats-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+.stat-chip {
+  background: rgba(255,255,255,0.05);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.stat-chip strong { color: var(--text); }
+
+.section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+
+.tags-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.home-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.order-toggle {
+  display: flex;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  margin-bottom: 16px;
+}
+.order-toggle button {
+  flex: 1;
+  padding: 8px;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.order-toggle button.active {
+  background: var(--card);
+  color: var(--text);
+}
+
+/* ============================================
+   Import Screen
+   ============================================ */
+.import-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 48px 24px;
+  text-align: center;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.import-zone.dragover {
+  border-color: var(--primary);
+  background: var(--primary-glow);
+}
+.import-zone svg { width: 48px; height: 48px; color: var(--text-dim); margin-bottom: 16px; }
+.import-zone p { color: var(--text-secondary); font-size: 14px; }
+
+.import-result {
+  margin-top: 24px;
+  padding: 20px;
+  border-radius: var(--radius);
+  text-align: center;
+}
+.import-result.success { background: rgba(34, 197, 94, 0.1); color: var(--success); }
+.import-result.error { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+.import-log {
+  margin-top: 16px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+/* ============================================
+   Study Screen
+   ============================================ */
+.study-screen {
+  justify-content: space-between;
+  padding-top: 16px;
+}
+
+.study-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.study-progress {
+  font-family: 'Space Mono', monospace;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.study-close {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.study-step-indicator {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+.step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: all 0.3s;
+}
+.step-dot.active { background: var(--primary); width: 24px; border-radius: 4px; }
+.step-dot.done { background: var(--primary-dim); }
+
+.study-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 16px;
+  min-height: 0;
+}
+
+.audio-viz {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--primary-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.audio-viz.playing {
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.3); }
+  100% { box-shadow: 0 0 0 30px rgba(245, 158, 11, 0); }
+}
+.audio-viz svg { width: 36px; height: 36px; color: var(--primary); }
+
+.study-label {
+  font-size: 14px;
+  color: var(--text-dim);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.study-text {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.6;
+  padding: 0 8px;
+  max-width: 100%;
+  word-break: break-word;
+}
+.study-text.ja {
+  font-size: 18px;
+  color: var(--text-secondary);
+}
+
+.speed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: var(--card);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.study-controls {
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.study-main-btns {
+  display: flex;
+  gap: 12px;
+}
+.study-main-btns .btn { flex: 1; }
+
+.study-nav-btns {
+  display: flex;
+  gap: 12px;
+}
+.study-nav-btns .btn { flex: 1; min-height: 48px; font-size: 14px; }
+
+.rating-btns {
+  display: flex;
+  gap: 10px;
+}
+.rating-btns .btn { flex: 1; min-height: 56px; font-size: 15px; }
+.btn-again { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+.btn-hard { background: rgba(249, 115, 22, 0.15); color: var(--hard); }
+.btn-good { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+
+/* Study empty state */
+.study-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 16px;
+  color: var(--text-secondary);
+}
+
+/* ============================================
+   Data Management Screen
+   ============================================ */
+.data-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item-row {
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.item-play-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary-glow);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.item-info { flex: 1; min-width: 0; }
+.item-transcript {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.item-translation {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.item-tags {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.item-tags .mini-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-dim);
+}
+
+.item-delete-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.confirm-dialog {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+}
+.confirm-dialog .dialog-box {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 320px;
+  width: 100%;
+}
+.confirm-dialog h3 { font-size: 16px; margin-bottom: 8px; }
+.confirm-dialog p { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; }
+.confirm-dialog .dialog-btns { display: flex; gap: 12px; }
+.confirm-dialog .dialog-btns .btn { flex: 1; }
+
+/* ============================================
+   Animations
+   ============================================ */
+.fade-in {
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease;
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================
+   Scrollbar
+   ============================================ */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ==================== HOME ==================== -->
+  <div id="screen-home" class="screen active">
+    <div class="home-hero">
+      <div class="hero-count" id="total-count">0</div>
+      <div class="hero-label">アイテム登録済み</div>
+      <div class="stats-row">
+        <div class="stat-chip">未学習 <strong id="unseen-count">0</strong></div>
+        <div class="stat-chip">復習 <strong id="review-count">0</strong></div>
+        <div class="stat-chip">完了 <strong id="good-count">0</strong></div>
+      </div>
+    </div>
+
+    <div class="section-label">タグで絞り込み</div>
+    <div class="tags-wrap" id="tag-list">
+      <span class="empty-state" style="padding:12px"><p>タグなし</p></span>
+    </div>
+
+    <div class="section-label">学習モード</div>
+    <div class="order-toggle" id="order-toggle">
+      <button class="active" data-order="sequential">順番</button>
+      <button data-order="random">ランダム</button>
+    </div>
+
+    <div class="section-label">範囲</div>
+    <div class="order-toggle" id="scope-toggle" style="margin-bottom:24px">
+      <button class="active" data-scope="unseen">未学習</button>
+      <button data-scope="review">復習</button>
+      <button data-scope="all">すべて</button>
+    </div>
+
+    <div class="home-actions">
+      <button class="btn btn-primary btn-block" id="btn-start-study">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="9"/><polygon points="8,6 15,10 8,14" fill="currentColor" stroke="none"/></svg>
+        学習を開始
+      </button>
+      <button class="btn btn-surface btn-block" id="btn-go-import">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v8m0 0l-3-3m3 3l3-3"/><path d="M4 14v3a1 1 0 001 1h10a1 1 0 001-1v-3"/></svg>
+        インポート
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== IMPORT ==================== -->
+  <div id="screen-import" class="screen">
+    <div class="page-title">インポート</div>
+
+    <div class="import-zone" id="import-zone">
+      <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 18h16"/></svg>
+      <p>JSONファイルをタップして選択<br>またはドラッグ&ドロップ</p>
+    </div>
+    <input type="file" id="file-input" accept=".json,application/json" hidden>
+
+    <div id="import-result" style="display:none"></div>
+  </div>
+
+  <!-- ==================== STUDY ==================== -->
+  <div id="screen-study" class="screen study-screen">
+    <!-- Study Empty State -->
+    <div id="study-empty" class="study-empty" style="display:none">
+      <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="opacity:0.3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l6 6m0-6l-6 6m12-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <p>対象アイテムがありません</p>
+      <button class="btn btn-surface btn-sm" onclick="navigate('home')">ホームに戻る</button>
+    </div>
+
+    <!-- Study Active -->
+    <div id="study-active" style="display:none; flex:1; display:flex; flex-direction:column;">
+      <div class="study-header">
+        <div class="study-progress" id="study-progress">1 / 10</div>
+        <button class="study-close" onclick="endStudy()">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l8 8M14 6l-8 8"/></svg>
+        </button>
+      </div>
+
+      <div class="study-step-indicator" id="step-indicator">
+        <div class="step-dot active"></div>
+        <div class="step-dot"></div>
+        <div class="step-dot"></div>
+        <div class="step-dot"></div>
+      </div>
+
+      <div class="study-content" id="study-content">
+        <!-- Dynamically filled -->
+      </div>
+
+      <div class="study-controls" id="study-controls">
+        <!-- Dynamically filled -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== DATA ==================== -->
+  <div id="screen-data" class="screen">
+    <div class="page-title">データ管理</div>
+
+    <div class="data-actions">
+      <button class="btn btn-surface btn-sm" style="flex:1" id="btn-reset-progress">成績リセット</button>
+      <button class="btn btn-danger btn-sm" style="flex:1" id="btn-delete-all">全件削除</button>
+    </div>
+
+    <div class="section-label">登録アイテム (<span id="data-item-count">0</span>件)</div>
+    <div class="item-list" id="item-list">
+      <div class="empty-state"><p>アイテムなし</p></div>
+    </div>
+  </div>
+
+  <!-- ==================== NAV ==================== -->
+  <nav id="nav">
+    <button class="nav-btn active" data-screen="home">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-4 0v-6h4v6"/></svg>
+      ホーム
+    </button>
+    <button class="nav-btn" data-screen="study" id="nav-study">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      学習
+    </button>
+    <button class="nav-btn" data-screen="data">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h10"/></svg>
+      データ
+    </button>
+  </nav>
+
+</div>
+
+<!-- ==================== CONFIRM DIALOG TEMPLATE ==================== -->
+<div id="confirm-dialog" class="confirm-dialog" style="display:none">
+  <div class="dialog-box">
+    <h3 id="dialog-title"></h3>
+    <p id="dialog-message"></p>
+    <div class="dialog-btns">
+      <button class="btn btn-surface btn-sm" id="dialog-cancel">キャンセル</button>
+      <button class="btn btn-danger btn-sm" id="dialog-confirm">実行</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================
+   IndexedDB
+   ============================================ */
+const DB_NAME = 'ListeningApp';
+const DB_VERSION = 1;
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('items')) {
+        d.createObjectStore('items', { keyPath: 'itemId' });
+      }
+      if (!d.objectStoreNames.contains('progress')) {
+        const ps = d.createObjectStore('progress', { keyPath: 'itemId' });
+        ps.createIndex('status', 'status', { unique: false });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function tx(store, mode = 'readonly') {
+  return db.transaction(store, mode).objectStore(store);
+}
+
+function dbGetAll(store) {
+  return new Promise((resolve, reject) => {
+    const req = tx(store).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbGet(store, key) {
+  return new Promise((resolve, reject) => {
+    const req = tx(store).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbPut(store, data) {
+  return new Promise((resolve, reject) => {
+    const req = tx(store, 'readwrite').put(data);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbDelete(store, key) {
+  return new Promise((resolve, reject) => {
+    const req = tx(store, 'readwrite').delete(key);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbClear(store) {
+  return new Promise((resolve, reject) => {
+    const req = tx(store, 'readwrite').clear();
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/* ============================================
+   Navigation
+   ============================================ */
+let currentScreen = 'home';
+
+function navigate(screen) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`screen-${screen}`).classList.add('active');
+  document.querySelector(`.nav-btn[data-screen="${screen}"]`)?.classList.add('active');
+  currentScreen = screen;
+
+  if (screen === 'home') refreshHome();
+  if (screen === 'data') refreshDataList();
+}
+
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => navigate(btn.dataset.screen));
+});
+
+/* ============================================
+   Home Screen
+   ============================================ */
+let selectedTags = new Set();
+let studyOrder = 'sequential';
+let studyScope = 'unseen';
+
+async function refreshHome() {
+  const items = await dbGetAll('items');
+  const progress = await dbGetAll('progress');
+  const pMap = {};
+  progress.forEach(p => pMap[p.itemId] = p);
+
+  let unseenCount = 0, reviewCount = 0, goodCount = 0;
+  const tagSet = new Set();
+
+  items.forEach(it => {
+    (it.tags || []).forEach(t => tagSet.add(t));
+    const p = pMap[it.itemId];
+    if (!p || p.status === 'unseen') unseenCount++;
+    else if (p.status === 'again' || p.status === 'hard') reviewCount++;
+    else goodCount++;
+  });
+
+  document.getElementById('total-count').textContent = items.length;
+  document.getElementById('unseen-count').textContent = unseenCount;
+  document.getElementById('review-count').textContent = reviewCount;
+  document.getElementById('good-count').textContent = goodCount;
+
+  const tagListEl = document.getElementById('tag-list');
+  if (tagSet.size === 0) {
+    tagListEl.innerHTML = '<span class="empty-state" style="padding:12px"><p>タグなし</p></span>';
+  } else {
+    tagListEl.innerHTML = '';
+    const tagAll = document.createElement('span');
+    tagAll.className = 'tag' + (selectedTags.size === 0 ? ' active' : '');
+    tagAll.textContent = 'すべて';
+    tagAll.onclick = () => { selectedTags.clear(); refreshHome(); };
+    tagListEl.appendChild(tagAll);
+
+    [...tagSet].sort().forEach(t => {
+      const el = document.createElement('span');
+      el.className = 'tag' + (selectedTags.has(t) ? ' active' : '');
+      el.textContent = t;
+      el.onclick = () => {
+        if (selectedTags.has(t)) selectedTags.delete(t);
+        else selectedTags.add(t);
+        refreshHome();
+      };
+      tagListEl.appendChild(el);
+    });
+  }
+}
+
+// Order toggle
+document.getElementById('order-toggle').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  studyOrder = btn.dataset.order;
+  document.querySelectorAll('#order-toggle button').forEach(b => b.classList.toggle('active', b === btn));
+});
+
+// Scope toggle
+document.getElementById('scope-toggle').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  studyScope = btn.dataset.scope;
+  document.querySelectorAll('#scope-toggle button').forEach(b => b.classList.toggle('active', b === btn));
+});
+
+/* ============================================
+   Import
+   ============================================ */
+document.getElementById('btn-go-import').addEventListener('click', () => navigate('import'));
+
+const importZone = document.getElementById('import-zone');
+const fileInput = document.getElementById('file-input');
+
+importZone.addEventListener('click', () => fileInput.click());
+importZone.addEventListener('dragover', e => { e.preventDefault(); importZone.classList.add('dragover'); });
+importZone.addEventListener('dragleave', () => importZone.classList.remove('dragover'));
+importZone.addEventListener('drop', e => {
+  e.preventDefault();
+  importZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleImportFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) handleImportFile(fileInput.files[0]);
+  fileInput.value = '';
+});
+
+async function handleImportFile(file) {
+  const resultEl = document.getElementById('import-result');
+  resultEl.style.display = 'block';
+  resultEl.className = 'import-result';
+  resultEl.textContent = '読み込み中...';
+
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data.items || !Array.isArray(data.items)) throw new Error('items配列がありません');
+
+    let added = 0, skipped = 0;
+    for (const item of data.items) {
+      if (!item.itemId || !item.audio) { skipped++; continue; }
+      const existing = await dbGet('items', item.itemId);
+      if (existing) { skipped++; continue; }
+
+      await dbPut('items', {
+        itemId: item.itemId,
+        audio: item.audio,
+        transcript: item.transcript || null,
+        translation: item.translation || null,
+        tags: item.tags || [],
+        memo: item.memo || '',
+        importedAt: new Date().toISOString()
+      });
+
+      await dbPut('progress', {
+        itemId: item.itemId,
+        status: 'unseen',
+        lastStudiedAt: null,
+        studyCount: 0
+      });
+      added++;
+    }
+
+    resultEl.className = 'import-result success';
+    resultEl.innerHTML = `<strong>${added}件</strong> インポート完了` + (skipped ? `<br><span style="font-size:13px">(${skipped}件スキップ: 重複または不正)</span>` : '');
+    refreshHome();
+  } catch (err) {
+    resultEl.className = 'import-result error';
+    resultEl.textContent = `エラー: ${err.message}`;
+  }
+}
+
+/* ============================================
+   Study Session
+   ============================================ */
+let studyItems = [];
+let studyIndex = 0;
+let studyStep = 0; // 0=STEP1(normal), 1=STEP2(slow), 2=STEP3(transcript), 3=STEP4(translation)
+let currentAudio = null;
+
+document.getElementById('btn-start-study').addEventListener('click', startStudy);
+
+async function startStudy() {
+  const items = await dbGetAll('items');
+  const progress = await dbGetAll('progress');
+  const pMap = {};
+  progress.forEach(p => pMap[p.itemId] = p);
+
+  // Filter by tags
+  let filtered = items;
+  if (selectedTags.size > 0) {
+    filtered = items.filter(it => (it.tags || []).some(t => selectedTags.has(t)));
+  }
+
+  // Filter by scope
+  if (studyScope === 'unseen') {
+    filtered = filtered.filter(it => {
+      const p = pMap[it.itemId];
+      return !p || p.status === 'unseen';
+    });
+  } else if (studyScope === 'review') {
+    filtered = filtered.filter(it => {
+      const p = pMap[it.itemId];
+      return p && (p.status === 'again' || p.status === 'hard');
+    });
+  }
+
+  if (filtered.length === 0) {
+    navigate('study');
+    document.getElementById('study-empty').style.display = 'flex';
+    document.getElementById('study-active').style.display = 'none';
+    return;
+  }
+
+  // Order
+  if (studyOrder === 'random') {
+    for (let i = filtered.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
+    }
+  }
+
+  studyItems = filtered;
+  studyIndex = 0;
+  studyStep = 0;
+
+  navigate('study');
+  document.getElementById('study-empty').style.display = 'none';
+  document.getElementById('study-active').style.display = 'flex';
+  renderStudyItem();
+}
+
+function endStudy() {
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  navigate('home');
+}
+
+function renderStudyItem() {
+  const item = studyItems[studyIndex];
+  if (!item) { endStudy(); return; }
+
+  document.getElementById('study-progress').textContent = `${studyIndex + 1} / ${studyItems.length}`;
+
+  // Step dots
+  const dots = document.querySelectorAll('.step-dot');
+  dots.forEach((d, i) => {
+    d.className = 'step-dot';
+    if (i < studyStep) d.classList.add('done');
+    if (i === studyStep) d.classList.add('active');
+  });
+
+  const contentEl = document.getElementById('study-content');
+  const controlsEl = document.getElementById('study-controls');
+
+  // Content
+  if (studyStep === 0) {
+    contentEl.innerHTML = `
+      <div class="audio-viz" id="audio-viz">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>
+      </div>
+      <div class="study-label">STEP 1 — 通常再生</div>
+      <div class="speed-badge">1.0x</div>
+    `;
+    playAudio(item, 1.0);
+  } else if (studyStep === 1) {
+    contentEl.innerHTML = `
+      <div class="audio-viz" id="audio-viz">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>
+      </div>
+      <div class="study-label">STEP 2 — スロー再生</div>
+      <div class="speed-badge">0.75x</div>
+    `;
+    playAudio(item, 0.75);
+  } else if (studyStep === 2) {
+    const t = item.transcript || '(スクリプトなし)';
+    contentEl.innerHTML = `
+      <div class="study-label fade-in">STEP 3 — スクリプト</div>
+      <div class="study-text fade-in">${escapeHtml(t)}</div>
+    `;
+  } else if (studyStep === 3) {
+    const t = item.transcript || '(スクリプトなし)';
+    const tr = item.translation || '(翻訳なし)';
+    contentEl.innerHTML = `
+      <div class="study-label">STEP 3 — スクリプト</div>
+      <div class="study-text">${escapeHtml(t)}</div>
+      <div class="study-label fade-in" style="margin-top:8px">STEP 4 — 日本語訳</div>
+      <div class="study-text ja fade-in">${escapeHtml(tr)}</div>
+    `;
+  }
+
+  // Controls
+  if (studyStep < 3) {
+    controlsEl.innerHTML = `
+      <div class="study-main-btns">
+        <button class="btn btn-surface" onclick="replayAudio()">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5"/><path stroke-linecap="round" stroke-linejoin="round" d="M20.49 9A9 9 0 0 0 5.64 5.64L4 4m16 16l-1.64-1.64A9 9 0 0 1 3.51 15"/></svg>
+          もう一度
+        </button>
+        <button class="btn btn-primary" onclick="nextStep()">
+          次へ
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+      <div class="study-nav-btns">
+        <button class="btn btn-surface btn-sm" onclick="prevStep()" ${studyStep === 0 ? 'disabled style="opacity:0.3"' : ''}>
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+          戻る
+        </button>
+        <button class="btn btn-surface btn-sm" onclick="skipItem()">
+          スキップ
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    `;
+  } else {
+    // STEP 4 — show rating + replay
+    controlsEl.innerHTML = `
+      <div class="study-main-btns" style="margin-bottom:4px">
+        <button class="btn btn-surface" onclick="replayAudio()">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="6,4 20,12 6,20" fill="currentColor"/></svg>
+          再生
+        </button>
+        <button class="btn btn-surface" onclick="prevStep()">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+          戻る
+        </button>
+      </div>
+      <div class="rating-btns">
+        <button class="btn btn-again" onclick="rateItem('again')">Again</button>
+        <button class="btn btn-hard" onclick="rateItem('hard')">Hard</button>
+        <button class="btn btn-good" onclick="rateItem('good')">Good</button>
+      </div>
+    `;
+  }
+}
+
+function playAudio(item, rate) {
+  if (currentAudio) { currentAudio.pause(); }
+  const mime = item.audio.format === 'mp3' ? 'audio/mpeg' : `audio/${item.audio.format}`;
+  const blob = base64ToBlob(item.audio.data, mime);
+  const url = URL.createObjectURL(blob);
+  currentAudio = new Audio(url);
+  currentAudio.preservesPitch = true;
+  currentAudio.playbackRate = rate;
+  currentAudio.play().catch(() => {});
+  currentAudio.onended = () => {
+    const viz = document.getElementById('audio-viz');
+    if (viz) viz.classList.remove('playing');
+  };
+  currentAudio.onplay = () => {
+    const viz = document.getElementById('audio-viz');
+    if (viz) viz.classList.add('playing');
+  };
+}
+
+function replayAudio() {
+  const item = studyItems[studyIndex];
+  if (!item) return;
+  const rate = studyStep === 1 ? 0.75 : 1.0;
+  playAudio(item, rate);
+}
+
+function nextStep() {
+  if (studyStep < 3) {
+    studyStep++;
+    if (currentAudio) currentAudio.pause();
+    renderStudyItem();
+  }
+}
+
+function prevStep() {
+  if (studyStep > 0) {
+    studyStep--;
+    if (currentAudio) currentAudio.pause();
+    renderStudyItem();
+  }
+}
+
+function skipItem() {
+  if (currentAudio) currentAudio.pause();
+  studyIndex++;
+  studyStep = 0;
+  if (studyIndex >= studyItems.length) {
+    endStudy();
+  } else {
+    renderStudyItem();
+  }
+}
+
+async function rateItem(status) {
+  const item = studyItems[studyIndex];
+  if (!item) return;
+  const prog = await dbGet('progress', item.itemId) || {
+    itemId: item.itemId, status: 'unseen', lastStudiedAt: null, studyCount: 0
+  };
+  prog.status = status;
+  prog.lastStudiedAt = new Date().toISOString();
+  prog.studyCount = (prog.studyCount || 0) + 1;
+  await dbPut('progress', prog);
+
+  if (currentAudio) currentAudio.pause();
+  studyIndex++;
+  studyStep = 0;
+  if (studyIndex >= studyItems.length) {
+    endStudy();
+  } else {
+    renderStudyItem();
+  }
+}
+
+/* ============================================
+   Data Management
+   ============================================ */
+async function refreshDataList() {
+  const items = await dbGetAll('items');
+  const progress = await dbGetAll('progress');
+  const pMap = {};
+  progress.forEach(p => pMap[p.itemId] = p);
+
+  document.getElementById('data-item-count').textContent = items.length;
+  const listEl = document.getElementById('item-list');
+
+  if (items.length === 0) {
+    listEl.innerHTML = '<div class="empty-state"><p>アイテムなし</p></div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  items.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'item-row fade-in';
+    const statusSymbol = getStatusSymbol(pMap[item.itemId]?.status);
+    row.innerHTML = `
+      <button class="item-play-btn" data-id="${item.itemId}">
+        <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><polygon points="6,4 20,12 6,20"/></svg>
+      </button>
+      <div class="item-info">
+        <div class="item-transcript">${escapeHtml(item.transcript || '(スクリプトなし)')}</div>
+        <div class="item-translation">${escapeHtml(item.translation || '')}</div>
+        <div class="item-tags">
+          <span class="mini-tag">${statusSymbol}</span>
+          ${(item.tags || []).map(t => `<span class="mini-tag">${escapeHtml(t)}</span>`).join('')}
+        </div>
+      </div>
+      <button class="item-delete-btn" data-id="${item.itemId}">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+      </button>
+    `;
+    listEl.appendChild(row);
+  });
+
+  // Play buttons
+  listEl.querySelectorAll('.item-play-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const item = await dbGet('items', btn.dataset.id);
+      if (item) playAudio(item, 1.0);
+    });
+  });
+
+  // Delete buttons
+  listEl.querySelectorAll('.item-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      showConfirm('アイテム削除', 'このアイテムを削除しますか？', async () => {
+        await dbDelete('items', btn.dataset.id);
+        await dbDelete('progress', btn.dataset.id);
+        refreshDataList();
+      });
+    });
+  });
+}
+
+function getStatusSymbol(status) {
+  switch (status) {
+    case 'again': return '🔴 Again';
+    case 'hard': return '🟠 Hard';
+    case 'good': return '🟢 Good';
+    default: return '⚪ 未学習';
+  }
+}
+
+// Reset progress
+document.getElementById('btn-reset-progress').addEventListener('click', () => {
+  showConfirm('成績リセット', 'すべてのアイテムの成績をリセットしますか？', async () => {
+    const items = await dbGetAll('items');
+    for (const item of items) {
+      await dbPut('progress', {
+        itemId: item.itemId,
+        status: 'unseen',
+        lastStudiedAt: null,
+        studyCount: 0
+      });
+    }
+    refreshDataList();
+    refreshHome();
+  });
+});
+
+// Delete all
+document.getElementById('btn-delete-all').addEventListener('click', () => {
+  showConfirm('全件削除', 'すべてのアイテムと成績を削除しますか？この操作は取り消せません。', async () => {
+    await dbClear('items');
+    await dbClear('progress');
+    refreshDataList();
+    refreshHome();
+  });
+});
+
+/* ============================================
+   Confirm Dialog
+   ============================================ */
+function showConfirm(title, message, onConfirm) {
+  const dialog = document.getElementById('confirm-dialog');
+  document.getElementById('dialog-title').textContent = title;
+  document.getElementById('dialog-message').textContent = message;
+  dialog.style.display = 'flex';
+
+  const cancel = document.getElementById('dialog-cancel');
+  const confirm = document.getElementById('dialog-confirm');
+
+  const cleanup = () => { dialog.style.display = 'none'; cancel.onclick = null; confirm.onclick = null; };
+  cancel.onclick = cleanup;
+  confirm.onclick = () => { cleanup(); onConfirm(); };
+}
+
+/* ============================================
+   Utilities
+   ============================================ */
+function base64ToBlob(base64, mime) {
+  const bytes = atob(base64);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+/* ============================================
+   Init
+   ============================================ */
+async function init() {
+  await openDB();
+  refreshHome();
+
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+}
+
+init();
+</script>
+</body>
+</html>
