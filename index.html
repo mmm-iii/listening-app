@@ -365,10 +365,11 @@ fIn.onchange=()=>{if(fIn.files.length)doImp(fIn.files[0]);fIn.value=''};
 async function doImp(file){
   const res=document.getElementById('imp-result');res.style.display='block';res.textContent='読み込み中...';res.className='import-result';
   try{const d=JSON.parse(await file.text());if(!d.items?.length)throw new Error('items配列なし');let a=0,s=0;
-    for(const it of d.items){if(!it.itemId||!it.audio){s++;continue}if(await gg('items',it.itemId)){s++;continue}
-      await pp('items',{itemId:it.itemId,audio:it.audio,transcript:it.transcript||null,translation:it.translation||null,tags:it.tags||[],memo:it.memo||'',importedAt:new Date().toISOString()});
-      await pp('cards',{itemId:it.itemId,stability:0,difficulty:0,lastReview:0,reviewCount:0,lapseCount:0});a++}
-    res.className='import-result ok';res.innerHTML=`<b>${a}件</b> インポート完了`+(s?`<br><span style="font-size:12px">${s}件スキップ</span>`:'');refreshHome();
+    let u=0;for(const it of d.items){if(!it.itemId||!it.audio){s++;continue}
+      const exists=await gg('items',it.itemId);
+      await pp('items',{itemId:it.itemId,audio:it.audio,transcript:it.transcript||null,translation:it.translation||null,tags:it.tags||[],memo:it.memo||'',importedAt:exists?.importedAt||new Date().toISOString()});
+      if(exists){u++}else{await pp('cards',{itemId:it.itemId,stability:0,difficulty:0,lastReview:0,reviewCount:0,lapseCount:0});a++}}
+    res.className='import-result ok';res.innerHTML=`<b>${a}件</b> 新規追加`+(u?`<br><span style="font-size:12px">${u}件 上書き更新</span>`:'')+(s?`<br><span style="font-size:12px">${s}件スキップ(不正)</span>`:'');refreshHome();
   }catch(e){res.className='import-result err';res.textContent='エラー: '+e.message}}
 
 // === Audio ===
@@ -510,7 +511,7 @@ async function refreshIL(){
     r.innerHTML=`<button class="item-play" data-id="${it.itemId}"><svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><polygon points="6,4 20,12 6,20"/></svg></button><div class="item-info"><div class="item-t">${esc(it.transcript||'(なし)')}</div><div class="item-t2">${esc(it.translation||'')}</div><div class="item-tags"><span class="mini-tag">${st_}</span><span class="mini-tag">▶${pc} ★${ec}</span>${(it.tags||[]).map(t=>`<span class="mini-tag">${esc(t)}</span>`).join('')}</div></div><button class="item-del" data-id="${it.itemId}"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>`;
     lE.appendChild(r)});
   lE.querySelectorAll('.item-play').forEach(b=>b.onclick=async()=>{const it=await gg('items',b.dataset.id);if(it)playI(it)});
-  lE.querySelectorAll('.item-del').forEach(b=>b.onclick=()=>confirm_('削除','このアイテムを削除しますか？',async()=>{await dd('items',b.dataset.id);await dd('cards',b.dataset.id);refreshIL();refreshHome()}));
+  lE.querySelectorAll('.item-del').forEach(b=>b.onclick=()=>confirm_('削除','このアイテムを削除しますか？\n成績データは保持されます。',async()=>{await dd('items',b.dataset.id);refreshIL();refreshHome()}));
 }
 async function refreshW(){
   const ws=await ga('wordList');const lE=document.getElementById('word-list');
