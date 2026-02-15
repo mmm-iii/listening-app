@@ -43,7 +43,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM San
 button{font-family:inherit;border:none;cursor:pointer;outline:none;-webkit-appearance:none;font-size:inherit}
 input{font-family:inherit;font-size:inherit}
 #app{height:100%;display:flex;flex-direction:column}
-.screen{display:none;flex:1;overflow-y:auto;padding:20px 16px;padding-bottom:calc(var(--nav-h)+var(--safe-b)+20px);-webkit-overflow-scrolling:touch}
+.screen{display:none;flex:1;overflow-y:auto;padding:20px 16px;padding-bottom:calc(var(--nav-h)+var(--safe-b)+40px);-webkit-overflow-scrolling:touch}
 .screen.active{display:flex;flex-direction:column}
 #nav{position:fixed;bottom:0;left:0;right:0;height:calc(var(--nav-h)+var(--safe-b));padding-bottom:var(--safe-b);background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:100}
 .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;color:var(--text3);font-size:10px;font-weight:600;letter-spacing:0.04em;transition:color 0.2s}
@@ -183,9 +183,9 @@ input{font-family:inherit;font-size:inherit}
   <div class="ptitle">インポート</div>
   <div class="import-zone" id="imp-zone">
     <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 18h16"/></svg>
-    <p>JSONファイルを選択</p>
+    <p>JSONファイルを選択（複数可）</p>
   </div>
-  <input type="file" id="file-in" accept=".json" hidden>
+  <input type="file" id="file-in" accept=".json" multiple hidden>
   <div id="imp-result" style="display:none"></div>
 </div>
 <div id="screen-study" class="screen study-screen"></div>
@@ -360,17 +360,34 @@ document.getElementById('order-tog').onclick=e=>{const b=e.target.closest('butto
 const impZ=document.getElementById('imp-zone'),fIn=document.getElementById('file-in');
 impZ.onclick=()=>fIn.click();
 impZ.ondragover=e=>{e.preventDefault();impZ.classList.add('dragover')};impZ.ondragleave=()=>impZ.classList.remove('dragover');
-impZ.ondrop=e=>{e.preventDefault();impZ.classList.remove('dragover');if(e.dataTransfer.files.length)doImp(e.dataTransfer.files[0])};
-fIn.onchange=()=>{if(fIn.files.length)doImp(fIn.files[0]);fIn.value=''};
-async function doImp(file){
-  const res=document.getElementById('imp-result');res.style.display='block';res.textContent='読み込み中...';res.className='import-result';
-  try{const d=JSON.parse(await file.text());if(!d.items?.length)throw new Error('items配列なし');let a=0,s=0;
-    let u=0;for(const it of d.items){if(!it.itemId||!it.audio){s++;continue}
-      const exists=await gg('items',it.itemId);
-      await pp('items',{itemId:it.itemId,audio:it.audio,transcript:it.transcript||null,translation:it.translation||null,tags:it.tags||[],memo:it.memo||'',importedAt:exists?.importedAt||new Date().toISOString()});
-      if(exists){u++}else{await pp('cards',{itemId:it.itemId,stability:0,difficulty:0,lastReview:0,reviewCount:0,lapseCount:0});a++}}
-    res.className='import-result ok';res.innerHTML=`<b>${a}件</b> 新規追加`+(u?`<br><span style="font-size:12px">${u}件 上書き更新</span>`:'')+(s?`<br><span style="font-size:12px">${s}件スキップ(不正)</span>`:'');refreshHome();
-  }catch(e){res.className='import-result err';res.textContent='エラー: '+e.message}}
+impZ.ondrop=e=>{e.preventDefault();impZ.classList.remove('dragover');if(e.dataTransfer.files.length)doImpMulti(e.dataTransfer.files)};
+fIn.onchange=()=>{if(fIn.files.length)doImpMulti(fIn.files);fIn.value=''};
+async function doImpMulti(files){
+  const res=document.getElementById('imp-result');res.style.display='block';res.className='import-result';
+  res.innerHTML='<div style="font-size:13px;color:var(--text2)">読み込み中...</div>';
+  let results=[];let totalNew=0,totalUpd=0,totalSkip=0;
+  for(const file of files){
+    try{
+      const d=JSON.parse(await file.text());
+      if(!d.items?.length){results.push({name:file.name,ok:false,msg:'items配列なし'});continue}
+      let a=0,u=0,s=0;
+      for(const it of d.items){if(!it.itemId||!it.audio){s++;continue}
+        const exists=await gg('items',it.itemId);
+        await pp('items',{itemId:it.itemId,audio:it.audio,transcript:it.transcript||null,translation:it.translation||null,tags:it.tags||[],memo:it.memo||'',importedAt:exists?.importedAt||new Date().toISOString()});
+        if(exists){u++}else{await pp('cards',{itemId:it.itemId,stability:0,difficulty:0,lastReview:0,reviewCount:0,lapseCount:0});a++}}
+      results.push({name:file.name,ok:true,added:a,updated:u,skipped:s,total:d.items.length});
+      totalNew+=a;totalUpd+=u;totalSkip+=s;
+    }catch(e){results.push({name:file.name,ok:false,msg:e.message})}
+  }
+  let html=`<div style="font-weight:700;font-size:15px;margin-bottom:8px;color:var(--good)">完了: ${totalNew}件 新規 / ${totalUpd}件 更新</div>`;
+  html+='<div style="text-align:left;font-size:12px;color:var(--text2);max-height:200px;overflow-y:auto">';
+  results.forEach(r=>{
+    if(r.ok) html+=`<div style="padding:4px 0;border-bottom:1px solid var(--border)">📄 ${esc(r.name)} <span style="color:var(--text3)">(${r.total}件)</span> → <b style="color:var(--good)">${r.added}新規</b>${r.updated?` <b style="color:var(--accent)">${r.updated}更新</b>` :''}${r.skipped?` <span style="color:var(--text3)">${r.skipped}不正</span>`:''}</div>`;
+    else html+=`<div style="padding:4px 0;border-bottom:1px solid var(--border)">📄 ${esc(r.name)} → <span style="color:var(--again)">エラー: ${esc(r.msg)}</span></div>`;
+  });
+  html+='</div>';
+  res.className='import-result ok';res.innerHTML=html;refreshHome();
+}
 
 // === Audio ===
 let curA=null;
@@ -378,7 +395,7 @@ function b2b(b,f){const m=f==='mp3'?'audio/mpeg':'audio/'+f;const d=atob(b);cons
 function playI(item,rate=1){if(curA){curA.pause();curA=null}curA=new Audio(URL.createObjectURL(b2b(item.audio.data,item.audio.format)));curA.preservesPitch=true;curA.playbackRate=rate;curA.play().catch(()=>{});return curA}
 
 // === Study ===
-let sIt=[],sI=0,sSt=0,sEv=[];
+let sIt=[],sI=0,sSt=0,sEv=[],sRated=false;
 document.getElementById('btn-start').onclick=startStudy;
 async function startStudy(){
   let items=await ga('items');const cards=await ga('cards');
@@ -386,7 +403,7 @@ async function startStudy(){
   if(!items.length){nav('study');document.getElementById('screen-study').innerHTML='<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text2)"><div style="text-align:center"><p>対象なし</p><button class="btn btn-surface btn-sm" style="margin-top:12px" onclick="nav(\'home\')">戻る</button></div></div>';return}
   sched.reset();
   if(studyOrd==='random'){for(let i=items.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[items[i],items[j]]=[items[j],items[i]]}}
-  sIt=items;sI=0;sSt=0;sEv=[];nav('study');
+  sIt=items;sI=0;sSt=0;sEv=[];sRated=false;nav('study');
   studyOrd==='scheduler'?await pickN():renderS();
 }
 async function pickN(){
@@ -395,7 +412,7 @@ async function pickN(){
   const id=sched.pick(cards.filter(c=>pool.has(c.itemId)),evals,sEv);
   if(!id){endS();return}
   const item=sIt.find(i=>i.itemId===id);if(!item){endS();return}
-  sIt.splice(sIt.indexOf(item),1);sIt.splice(sI,0,item);sSt=0;renderS();
+  sIt.splice(sIt.indexOf(item),1);sIt.splice(sI,0,item);sSt=0;sRated=false;renderS();
 }
 function endS(){if(curA){curA.pause();curA=null}nav('home')}
 function renderS(){
@@ -413,34 +430,41 @@ function renderS(){
   else if(sSt===2) nb=`<div class="ctrl-row"><button class="btn btn-surface" onclick="replay_()">再生</button><button class="btn btn-surface" onclick="nextSt()">日本語訳</button></div>`;
   else nb=`<div class="ctrl-row"><button class="btn btn-surface" onclick="replay_()">再生</button></div>`;
 
-  document.getElementById('screen-study').innerHTML=`
-    <div class="study-hdr"><div class="study-prog">${sI+1} / ${tot}</div><button class="study-close" onclick="endS()"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5l8 8M13 5l-8 8"/></svg></button></div>
-    <div class="step-dots">${[0,1,2,3].map(i=>`<div class="sdot${i===sSt?' on':i<sSt?' done':''}"></div>`).join('')}</div>
-    <div class="study-body">${body}</div>
-    <div class="study-ctrls">${nb}
-      <div class="rate-row">
+  let rateHTML='';
+  if(sRated){
+    rateHTML=`<button class="btn btn-accent btn-block" onclick="goNext()">次へ →</button>
+      <div style="text-align:center;font-size:12px;color:var(--text3)">評価済み — STEPは自由に移動できます</div>`;
+  }else{
+    rateHTML=`<div class="rate-row">
         <button class="rate-btn r-again${sg==='again'?' suggest':''}" onclick="doRate(1)">Again</button>
         <button class="rate-btn r-hard${sg==='hard'?' suggest':''}" onclick="doRate(2)">Hard</button>
         <button class="rate-btn r-good${sg==='good'?' suggest':''}" onclick="doRate(3)">Good</button>
         <button class="rate-btn r-easy${sg==='easy'?' suggest':''}" onclick="doRate(4)">Easy</button>
       </div>
-      <button class="btn btn-surface btn-sm btn-block" style="opacity:0.5" onclick="doSkip()">スキップ</button>
-    </div>`;
-  if(sSt<=2) doPlay(item,sSt===1?0.75:1);
+      <button class="btn btn-surface btn-sm btn-block" style="opacity:0.5" onclick="doSkip()">スキップ</button>`;
+  }
+
+  document.getElementById('screen-study').innerHTML=`
+    <div class="study-hdr"><div class="study-prog">${sI+1} / ${tot}</div><button class="study-close" onclick="endS()"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5l8 8M13 5l-8 8"/></svg></button></div>
+    <div class="step-dots">${[0,1,2,3].map(i=>`<div class="sdot${i===sSt?' on':i<sSt?' done':''}"></div>`).join('')}</div>
+    <div class="study-body">${body}</div>
+    <div class="study-ctrls">${nb}${rateHTML}</div>`;
+  if(!sRated&&sSt<=2) doPlay(item,sSt===1?0.75:1);
   setTimeout(()=>initWT(item.itemId),50);
 }
 function doPlay(item,rate){const a=playI(item,rate);addL('playLog',{itemId:item.itemId,playedAt:new Date().toISOString(),speed:rate===1?'normal':'slow',source:'manual'});a.onplay=()=>{const o=document.getElementById('aorb');if(o)o.classList.add('playing')};a.onended=()=>{const o=document.getElementById('aorb');if(o)o.classList.remove('playing')}}
 function replay_(){const item=sIt[sI];if(item)doPlay(item,sSt===1?0.75:1)}
 function nextSt(){if(sSt<3){if(curA)curA.pause();sSt++;renderS()}}
-function doSkip(){if(curA)curA.pause();sI++;sSt=0;studyOrd==='scheduler'?pickN():sI>=sIt.length?endS():renderS()}
+function doSkip(){if(curA)curA.pause();sI++;sSt=0;sRated=false;studyOrd==='scheduler'?pickN():sI>=sIt.length?endS():renderS()}
 async function doRate(g){
-  const item=sIt[sI];if(!item)return;
+  const item=sIt[sI];if(!item||sRated)return;
   await addL('evalLog',{itemId:item.itemId,evaluatedAt:new Date().toISOString(),rating:g});
   const card=await gg('cards',item.itemId)||{itemId:item.itemId,stability:0,difficulty:0,lastReview:0,reviewCount:0,lapseCount:0};
   const upd=fsrs.review(card,g,Math.floor(Date.now()/86400000));upd.itemId=item.itemId;await pp('cards',upd);
-  sEv.push(item.itemId);if(curA)curA.pause();sI++;sSt=0;
-  studyOrd==='scheduler'?pickN():sI>=sIt.length?endS():renderS();
+  sEv.push(item.itemId);sRated=true;renderS();
+  toast(['','Again','Hard','Good','Easy'][g]+' で記録');
 }
+function goNext(){if(curA)curA.pause();sI++;sSt=0;sRated=false;studyOrd==='scheduler'?pickN():sI>=sIt.length?endS():renderS()}
 // Word tap
 async function initWT(iid){
   const el=document.getElementById('tw');if(!el)return;
