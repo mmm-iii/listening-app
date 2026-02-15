@@ -1,11 +1,10 @@
-const CACHE_NAME = 'listening-v2';
+const CACHE_NAME = 'listening-v3';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icons/icon-192.svg',
-  './icons/icon-512.svg',
-  'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@700&display=swap'
+  './icons/icon-512.svg'
 ];
 
 self.addEventListener('install', e => {
@@ -25,18 +24,24 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Cache first for app shell, network first for everything else
-  if (e.request.url.includes('fonts.googleapis.com') || e.request.url.includes('fonts.gstatic.com')) {
+  const url = new URL(e.request.url);
+  // Fonts: cache first
+  if (url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com')) {
     e.respondWith(
       caches.match(e.request).then(r => r || fetch(e.request).then(res => {
-        const clone = res.clone();
-        caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+        caches.open(CACHE_NAME).then(c => c.put(e.request, res.clone()));
         return res;
       }))
     );
-  } else {
-    e.respondWith(
-      caches.match(e.request).then(r => r || fetch(e.request))
-    );
+    return;
   }
+  // App files: network first, cache fallback (ensures updates are picked up)
+  e.respondWith(
+    fetch(e.request).then(res => {
+      if (res.ok) {
+        caches.open(CACHE_NAME).then(c => c.put(e.request, res.clone()));
+      }
+      return res;
+    }).catch(() => caches.match(e.request))
+  );
 });

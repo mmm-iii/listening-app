@@ -212,6 +212,7 @@ input{font-family:inherit;font-size:inherit}
     <div style="display:flex;flex-direction:column;gap:10px">
       <button class="btn btn-surface btn-block" id="btn-reset-progress">成績リセット</button>
       <button class="btn btn-block" style="background:var(--again-bg);color:var(--again)" id="btn-delete-all">全データ削除</button>
+      <div style="text-align:center;font-size:11px;color:var(--text3);margin-top:16px" id="app-ver"></div>
     </div>
   </div>
 </div>
@@ -259,14 +260,16 @@ class FSRS {
 class Scheduler {
   constructor(fsrs,o={}){this.f=fsrs;this.nEvery=o.nEvery||4;this.maxNew=o.maxNew||20;this.maxRev=o.maxRev||200;this.sinceN=0;this.newT=0;this.revT=0}
   today(){return Math.floor(Date.now()/86400000)}
-  stats(cards,evals){
+  stats(cards,evals,itemIds){
     const t=this.today();const ds=new Date();ds.setHours(0,0,0,0);const iso=ds.toISOString();
+    const valid=itemIds?new Set(itemIds):null;
     let due=0,nw=0;
     const todayNewDone=new Set();
     evals.filter(e=>e.evaluatedAt>=iso).forEach(e=>{const c=cards.find(x=>x.itemId===e.itemId);if(c&&c.reviewCount<=1)todayNewDone.add(e.itemId)});
     for(const c of cards){
+      if(valid&&!valid.has(c.itemId))continue;
       if(c.reviewCount===0){nw++;continue}
-      if(this.f.R(c.stability,t-c.lastReview)<this.f.dr)due++;
+      if(c.stability>0&&this.f.R(c.stability,t-c.lastReview)<this.f.dr)due++;
     }
     const newAvail=Math.max(0,Math.min(nw,this.maxNew-todayNewDone.size));
     return{dueReview:due,newAvail,total:Math.min(due+newAvail,this.maxRev)};
@@ -344,7 +347,7 @@ async function refreshHome(){
   document.getElementById('h-unseen').textContent=un;
   document.getElementById('h-learning').textContent=lr;
   document.getElementById('h-perfect').textContent=pf;
-  sched.reset();const ss=sched.stats(cards,evals);
+  sched.reset();const itemIds=items.map(i=>i.itemId);const ss=sched.stats(cards,evals,itemIds);
   document.getElementById('h-rev').textContent=ss.dueReview;
   document.getElementById('h-new').textContent=ss.newAvail;
   document.getElementById('h-day-total').textContent=ss.total;
@@ -516,7 +519,7 @@ function sl(ms){return new Promise(r=>setTimeout(r,ms))}
 // === Data ===
 document.querySelectorAll('.data-tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.data-tab,.data-section').forEach(x=>x.classList.remove('active'));t.classList.add('active');document.getElementById('dt-'+t.dataset.tab).classList.add('active');if(t.dataset.tab==='words')refreshW()});
 let dFilt='all';
-async function refreshData(){await refreshIL();await refreshW()}
+async function refreshData(){await refreshIL();await refreshW();document.getElementById('app-ver').textContent='App '+APP_VER}
 async function refreshIL(){
   const items=await ga('items'),cards=await ga('cards'),evals=await ga('evalLog'),plays=await ga('playLog');
   const cm={};cards.forEach(c=>cm[c.itemId]=c);
@@ -553,7 +556,25 @@ document.getElementById('btn-delete-all').onclick=()=>confirm_('全データ削�
 function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 
 // === Init ===
-(async()=>{await openDB();refreshHome();if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{})})();
+// === Init ===
+const APP_VER='v3';
+(async()=>{
+  await openDB();refreshHome();
+  if('serviceWorker' in navigator){
+    const reg=await navigator.serviceWorker.register('./sw.js').catch(()=>null);
+    if(reg){
+      reg.addEventListener('updatefound',()=>{
+        const nw=reg.installing;
+        if(nw)nw.addEventListener('statechange',()=>{
+          if(nw.state==='activated'){toast('アプリ更新あり — 再読み込みします');setTimeout(()=>location.reload(),1500)}
+        });
+      });
+      // Also check immediately on load
+      reg.update().catch(()=>{});
+    }
+  }
+  console.log('Listening App',APP_VER,'ready');
+})();
 </script>
 </body>
 </html>
